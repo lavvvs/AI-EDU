@@ -13,8 +13,8 @@ def _get_model():
     if _model is None:
         try:
             from faster_whisper import WhisperModel
-            logger.info("Loading faster-whisper tiny model...")
-            _model = WhisperModel("tiny", compute_type="int8")
+            logger.info("Loading faster-whisper base model...")
+            _model = WhisperModel("base", compute_type="int8")
             logger.info("Whisper model loaded successfully")
         except ImportError:
             logger.error("faster-whisper not installed. Run: pip install faster-whisper")
