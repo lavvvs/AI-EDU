@@ -1,0 +1,23 @@
+services:
+  # Backend: Python FastAPI
+  - type: web
+    name: edu-ai-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port 10000
+    envVars:
+      - key: PORT
+        value: 10000
+      - fromGroup: edu-ai-secrets
+
+  # Frontend: Next.js
+  - type: web
+    name: edu-ai-frontend
+    env: node
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        value: https://edu-ai-backend.onrender.com
+      - fromGroup: edu-ai-secrets

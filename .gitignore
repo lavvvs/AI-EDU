@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+backend_srv.log
+backend_log.txt
+backend_log_utf8.txt
+server.log
+focused_out.txt
+
+# Databases
+qdrant_db/
+mongo_test.py
+quota_test.py
+key_check.py
+focused_check.py
+test_qdrant_cloud.py
+
+# Env / Secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Node / Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/.vercel/
+
+# OS
+.DS_Store
+Thumbs.db

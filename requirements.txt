@@ -1,0 +1,25 @@
+fastapi
+uvicorn[standard]
+python-dotenv
+motor
+pydantic-settings
+passlib[bcrypt]
+python-jose[cryptography]
+python-multipart
+requests
+bcrypt==3.1.7
+
+# AI / ML
+sentence-transformers
+qdrant-client
+youtube-transcript-api
+beautifulsoup4
+trafilatura
+faster-whisper
+yt-dlp
+
+# PDF
+pymupdf
+
+# DNS for MongoDB Atlas
+dnspython
