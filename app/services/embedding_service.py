@@ -1,69 +1,54 @@
-import os
 import logging
-import requests
+import time
 from typing import List
 from app.core.config import settings
+from huggingface_hub import InferenceClient
 
 logger = logging.getLogger(__name__)
 
-# Reverting to original dimensions for BAAI/bge-small-en-v1.5
+# BAAI/bge-small-en-v1.5 dimensions
 EMBEDDING_DIM = 384
-API_URL = "https://api-inference.huggingface.co/models/BAAI/bge-small-en-v1.5"
 HF_TOKEN = settings.HUGGINGFACEHUB_API_TOKEN
+MODEL_NAME = "BAAI/bge-small-en-v1.5"
 
-def query_hf(payload):
-    headers = {"Authorization": f"Bearer {HF_TOKEN}"}
-    import time
-    
-    # Simple retry loop for "Model is loading" scenario (common with free tier)
-    for _ in range(3):
-        response = requests.post(API_URL, headers=headers, json=payload, timeout=30)
-        result = response.json()
-        
-        # Handle "Model is loading"
-        if isinstance(result, dict) and "estimated_time" in result:
-            wait_time = min(result.get("estimated_time", 10), 20)
-            logger.info(f"HF Model is loading, waiting {wait_time}s...")
-            time.sleep(wait_time)
-            continue
-            
-        if response.status_code != 200:
-            error_msg = result.get("error", "Unknown HF API Error")
-            logger.error(f"HF API Error ({response.status_code}): {error_msg}")
-            raise Exception(error_msg)
-            
-        return result
-    
-    raise Exception("Model failed to load after multiple retries")
+# Singleton client
+_client = None
+
+def get_client():
+    global _client
+    if _client is None:
+        if not HF_TOKEN:
+            logger.error("HuggingFace Token (HUGGINGFACEHUB_API_TOKEN) missing!")
+        _client = InferenceClient(token=HF_TOKEN)
+    return _client
 
 def embed_text(text: str) -> List[float]:
     """Embed a single text string using HF Cloud API."""
-    if not HF_TOKEN:
-        logger.error("HuggingFace Token missing!")
-        return [0.0] * EMBEDDING_DIM
-    
+    client = get_client()
     try:
-        output = query_hf({"inputs": text})
-        # If it's a list containing a list (nested), grab the first
+        # feature_extraction returns a numpy array-like list
+        output = client.feature_extraction(text, model=MODEL_NAME)
+        
+        # If the result is nested (batch of 1), flatten it
         if isinstance(output, list) and len(output) > 0 and isinstance(output[0], list):
-             return output[0]
-        return output
+            return output[0]
+        # Sometimes it returns a 1D list directly
+        return output.tolist() if hasattr(output, 'tolist') else output
     except Exception as e:
         logger.error(f"HF Embedding failed: {e}")
-        # Crash explicitly so the UI shows the real error instead of 'error' strings
-        raise e
+        # If it's a loading error, the client usually retries, but we crash so the user knows
+        raise Exception(f"AI Model is booting up or unavailable: {str(e)}")
 
 def embed_batch(texts: List[str]) -> List[List[float]]:
     """Embed a batch of texts using HF Cloud API."""
     if not texts:
         return []
-        
-    if not HF_TOKEN:
-        raise Exception("HuggingFace Token missing in environment")
     
+    client = get_client()
     try:
-        output = query_hf({"inputs": texts})
-        return output
+        output = client.feature_extraction(texts, model=MODEL_NAME)
+        # Convert to list of lists
+        return output.tolist() if hasattr(output, 'tolist') else output
     except Exception as e:
         logger.error(f"HF Batch Embedding failed: {e}")
-        raise e
+        raise Exception(f"AI Model Batch failing: {str(e)}")
