@@ -40,29 +40,44 @@ def _get_client() -> QdrantClient:
 
 
 def _ensure_collection():
-    """Create the main collection if it doesn't exist."""
+    """Create or recreate the main collection to match current embedding dimensions."""
     client = _client
-    collections = [c.name for c in client.get_collections().collections]
-    if COLLECTION_NAME not in collections:
-        client.create_collection(
-            collection_name=COLLECTION_NAME,
-            vectors_config=VectorParams(
-                size=EMBEDDING_DIM,
-                distance=Distance.COSINE,
-            ),
-        )
-        # Create payload indexes for filtering performance
-        client.create_payload_index(
-            collection_name=COLLECTION_NAME,
-            field_name="user_id",
-            field_schema="keyword",
-        )
-        client.create_payload_index(
-            collection_name=COLLECTION_NAME,
-            field_name="document_id",
-            field_schema="keyword",
-        )
-        logger.info(f"Created Qdrant collection: {COLLECTION_NAME}")
+    try:
+        collections = [c.name for c in client.get_collections().collections]
+        
+        if COLLECTION_NAME in collections:
+            # Check if dimensions match
+            col_info = client.get_collection(COLLECTION_NAME)
+            current_dim = col_info.config.params.vectors.size
+            
+            if current_dim != EMBEDDING_DIM:
+                logger.warning(f"Qdrant dimension mismatch: Cluster={current_dim}, Config={EMBEDDING_DIM}. Recreating...")
+                client.delete_collection(COLLECTION_NAME)
+                collections.remove(COLLECTION_NAME)
+        
+        if COLLECTION_NAME not in collections:
+            client.create_collection(
+                collection_name=COLLECTION_NAME,
+                vectors_config=VectorParams(
+                    size=EMBEDDING_DIM,
+                    distance=Distance.COSINE,
+                ),
+            )
+            # Create payload indexes for filtering performance
+            client.create_payload_index(
+                collection_name=COLLECTION_NAME,
+                field_name="user_id",
+                field_schema="keyword",
+            )
+            client.create_payload_index(
+                collection_name=COLLECTION_NAME,
+                field_name="document_id",
+                field_schema="keyword",
+            )
+            logger.info(f"Created Qdrant collection: {COLLECTION_NAME} (Size: {EMBEDDING_DIM})")
+            
+    except Exception as e:
+        logger.error(f"Failed to ensure Qdrant collection: {e}")
 
 
 def store_chunks(
