@@ -30,6 +30,7 @@ def _get_client() -> QdrantClient:
             _client = QdrantClient(
                 url=settings.QDRANT_URL,
                 api_key=settings.QDRANT_API_KEY,
+                timeout=60, # Increased timeout for cloud stability
             )
         else:
             logger.info(f"Initializing Qdrant persistent client at {settings.QDRANT_DB_PATH}")
