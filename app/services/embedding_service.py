@@ -1,32 +1,38 @@
 import logging
-from sentence_transformers import SentenceTransformer
+import google.generativeai as genai
 from typing import List
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Singleton model instance
-_model = None
-
-def _get_model() -> SentenceTransformer:
-    global _model
-    if _model is None:
-        logger.info("Loading embedding model: BAAI/bge-small-en-v1.5")
-        _model = SentenceTransformer("BAAI/bge-small-en-v1.5")
-        logger.info("Embedding model loaded successfully")
-    return _model
+# Note: Gemini embedding-001 is 768 dimensions
+EMBEDDING_DIM = 768
 
 def embed_text(text: str) -> List[float]:
-    """Embed a single text string. Returns 384-dim vector."""
-    model = _get_model()
-    embedding = model.encode(text, normalize_embeddings=True)
-    return embedding.tolist()
+    """Embed a single text string using Gemini API."""
+    try:
+        result = genai.embed_content(
+            model="models/embedding-001",
+            content=text,
+            task_type="retrieval_document"
+        )
+        return result['embedding']
+    except Exception as e:
+        logger.error(f"Gemini Embedding failed: {e}")
+        # Return zero vector fallback
+        return [0.0] * EMBEDDING_DIM
 
 def embed_batch(texts: List[str]) -> List[List[float]]:
-    """Embed a batch of texts. Returns list of 384-dim vectors."""
+    """Embed a batch of texts using Gemini API."""
     if not texts:
         return []
-    model = _get_model()
-    embeddings = model.encode(texts, normalize_embeddings=True, batch_size=32)
-    return embeddings.tolist()
-
-EMBEDDING_DIM = 384
+    try:
+        result = genai.embed_content(
+            model="models/embedding-001",
+            content=texts,
+            task_type="retrieval_document"
+        )
+        return result['embedding']
+    except Exception as e:
+        logger.error(f"Gemini Batch Embedding failed: {e}")
+        return [[0.0] * EMBEDDING_DIM for _ in texts]

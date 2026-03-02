@@ -17,8 +17,9 @@ _model = None
 def _get_whisper_model():
     global _model
     if _model is None:
-        logger.info("Loading Faster-Whisper model (base)...")
-        _model = WhisperModel("base", device="cpu", compute_type="int8")
+        logger.info("Loading Faster-Whisper model (tiny)...")
+        # 'tiny' is much smaller than 'base' (approx 75MB vs 150MB)
+        _model = WhisperModel("tiny", device="cpu", compute_type="int8")
     return _model
 
 def download_audio(url: str) -> str:

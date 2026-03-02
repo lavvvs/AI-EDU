@@ -13,7 +13,6 @@ email-validator
 # AI / ML
 google-generativeai
 huggingface_hub
-sentence-transformers
 qdrant-client
 youtube-transcript-api
 beautifulsoup4
