@@ -8,6 +8,7 @@ python-jose[cryptography]
 python-multipart
 requests
 bcrypt==3.1.7
+email-validator
 
 # AI / ML
 sentence-transformers
