@@ -71,11 +71,12 @@ def generate_answer(context: str, question: str) -> str:
             return generate_answer_with_retry(gemini_model, prompt)
         except Exception as e:
             logger.error(f"Gemini (primary) failed: {e}")
-            # Try 2.0-flash if 1.5 fails/unavailable
-            try:
-                if "429" not in str(e): # If it's not quota, maybe model choice error
+            # Always try fallback model — it's a different model with separate quota
+            if gemini_model_fallback:
+                try:
                     return generate_answer_with_retry(gemini_model_fallback, prompt)
-            except: pass
+                except Exception as e2:
+                    logger.error(f"Gemini (fallback) also failed: {e2}")
 
     # 2. Secondary Attempt: Hugging Face (Fallback)
     if hf_client:
@@ -104,6 +105,10 @@ def generate_answer(context: str, question: str) -> str:
     if not os.getenv("GEMINI_API_KEY") and not os.getenv("HUGGINGFACEHUB_API_TOKEN"):
         return "No AI API keys found. Please add GEMINI_API_KEY or HUGGINGFACEHUB_API_TOKEN to your .env file."
     
+    logger.error(f"generate_answer: ALL providers failed. gemini_model={gemini_model is not None}, "
+                 f"gemini_fallback={gemini_model_fallback is not None}, hf_client={hf_client is not None}, "
+                 f"GEMINI_KEY_SET={bool(os.getenv('GEMINI_API_KEY'))}, HF_KEY_SET={bool(os.getenv('HUGGINGFACEHUB_API_TOKEN'))}")
+
     return "The AI engines are currently overloaded. Please try again in 1 minute."
 
 def generate_teacher_answer(question: str) -> str:

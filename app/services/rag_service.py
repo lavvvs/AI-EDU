@@ -127,30 +127,44 @@ def query_document(
     }
 
 
+def _extract_video_id(url: str) -> str:
+    """Extract YouTube video ID from various URL formats."""
+    if "v=" in url:
+        return url.split("v=")[1].split("&")[0]
+    elif "youtu.be/" in url:
+        return url.split("youtu.be/")[1].split("?")[0]
+    else:
+        return url.split("/")[-1]
+
+
 def get_youtube_transcript(url: str) -> str:
-    """Professional Pipeline: Download audio with yt-dlp and transcribe with faster-whisper."""
-    from app.services.audio_service import process_youtube_audio
+    """Smart Pipeline: Try captions first (server-friendly), then audio fallback (local-friendly)."""
+
+    video_id = _extract_video_id(url)
+
+    # 1. Primary: Caption-based extraction (works on cloud servers without cookies)
     try:
-        logger.info(f"Starting professional transcription for: {url}")
+        logger.info(f"Attempting caption-based transcript for video: {video_id}")
+        from youtube_transcript_api import YouTubeTranscriptApi
+        transcript_data = YouTubeTranscriptApi.get_transcript(video_id)
+        transcript = " ".join([t["text"] for t in transcript_data])
+        if transcript.strip():
+            logger.info(f"Caption transcript obtained: {len(transcript)} chars")
+            return transcript
+    except Exception as caption_e:
+        logger.warning(f"Caption extraction failed (will try audio): {caption_e}")
+
+    # 2. Fallback: yt-dlp audio download + Whisper transcription (works locally)
+    try:
+        from app.services.audio_service import process_youtube_audio
+        logger.info(f"Attempting audio-based transcription for: {url}")
         transcript = process_youtube_audio(url)
         if not transcript:
             raise ValueError("Empty transcript generated from audio.")
         return transcript
-    except Exception as e:
-        logger.error(f"Professional pipeline failed: {e}")
-        # Final fallback - maybe video has simple captions if all else fails
-        try:
-            logger.info("Attempting caption-based fallback...")
-            if "v=" in url:
-                video_id = url.split("v=")[1].split("&")[0]
-            elif "youtu.be/" in url:
-                video_id = url.split("youtu.be/")[1].split("?")[0]
-            else:
-                video_id = url.split("/")[-1]
-
-            from youtube_transcript_api import YouTubeTranscriptApi
-            transcript_data = YouTubeTranscriptApi.get_transcript(video_id)
-            return " ".join([t["text"] for t in transcript_data])
-        except Exception as fallback_e:
-            logger.error(f"Fallback also failed: {fallback_e}")
-            raise ValueError(f"Could not analyze YouTube content: {str(e)}")
+    except Exception as audio_e:
+        logger.error(f"Audio pipeline also failed: {audio_e}")
+        raise ValueError(
+            f"Could not analyze YouTube content: {str(audio_e)}. "
+            f"This video may require authentication on the server, or has no available captions."
+        )
