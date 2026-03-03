@@ -24,9 +24,9 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_API_KEY:
     try:
         genai.configure(api_key=GEMINI_API_KEY)
-        # Using 1.5-flash is often more stable for free tier quota than 2.0-flash preview
-        gemini_model = genai.GenerativeModel('gemini-1.5-flash')
-        gemini_model_fallback = genai.GenerativeModel('gemini-2.0-flash')
+        # Using 2.0-flash as primary and 2.5-flash as fallback
+        gemini_model = genai.GenerativeModel('gemini-2.0-flash')
+        gemini_model_fallback = genai.GenerativeModel('gemini-2.5-flash')
         logger.info("Gemini models initialized.")
     except Exception as e:
         logger.warning(f"Failed to initialize Gemini models: {e}")
@@ -36,8 +36,8 @@ HUGGINGFACEHUB_API_TOKEN = os.getenv("HUGGINGFACEHUB_API_TOKEN")
 if HUGGINGFACEHUB_API_TOKEN:
     try:
         from huggingface_hub import InferenceClient
-        # Using a highly available model
-        hf_client = InferenceClient(model="HuggingFaceH4/zephyr-7b-beta", token=HUGGINGFACEHUB_API_TOKEN)
+        # Using a highly available model with timeout to avoid indefinite hanging
+        hf_client = InferenceClient(model="HuggingFaceH4/zephyr-7b-beta", token=HUGGINGFACEHUB_API_TOKEN, timeout=20)
         logger.info("Hugging Face initialized as backup LLM.")
     except Exception as e:
         logger.warning(f"Failed to initialize Hugging Face: {e}")
@@ -148,7 +148,7 @@ def generate_summary(text: str) -> str:
     )
     
     # Try multiple Gemini versions specifically for summaries to leverage different quotas
-    for model_name in ['gemini-1.5-flash', 'gemini-2.0-flash-lite', 'gemini-2.0-flash']:
+    for model_name in ['gemini-2.0-flash-lite', 'gemini-2.0-flash', 'gemini-2.5-flash']:
         try:
             m = genai.GenerativeModel(model_name)
             return generate_answer_with_retry(m, f"{summary_prompt}\n{text[:15000]}", retries=1)
