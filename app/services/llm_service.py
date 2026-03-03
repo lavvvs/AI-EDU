@@ -118,12 +118,18 @@ def generate_teacher_answer(question: str) -> str:
         "Teacher Response:"
     )
 
-    # 1. Primary Attempt: Gemini
+    # 1. Primary Attempt: Gemini (primary model)
     if gemini_model:
         try:
             return generate_answer_with_retry(gemini_model, teacher_prompt)
         except Exception as e:
-            logger.error(f"Gemini teacher response failed: {e}")
+            logger.error(f"Gemini teacher (primary) failed: {e}")
+            # Try fallback Gemini model if primary hit quota
+            if gemini_model_fallback:
+                try:
+                    return generate_answer_with_retry(gemini_model_fallback, teacher_prompt)
+                except Exception as e2:
+                    logger.error(f"Gemini teacher (fallback) failed: {e2}")
 
     # 2. Secondary Attempt: Hugging Face
     if hf_client:
@@ -135,7 +141,12 @@ def generate_teacher_answer(question: str) -> str:
             )
             return response.choices[0].message.content.strip()
         except Exception as hf_e:
-            logger.error(f"Teacher fallback failed: {hf_e}")
+            logger.error(f"Teacher HF fallback failed: {hf_e}")
+
+    # 3. Log why we're returning the break message
+    logger.error(f"Teacher answer: ALL providers failed. gemini_model={gemini_model is not None}, "
+                 f"gemini_fallback={gemini_model_fallback is not None}, hf_client={hf_client is not None}, "
+                 f"GEMINI_KEY_SET={bool(os.getenv('GEMINI_API_KEY'))}, HF_KEY_SET={bool(os.getenv('HUGGINGFACEHUB_API_TOKEN'))}")
 
     return "I'm currently taking a short break. Please try asking your question again in a moment!"
 
